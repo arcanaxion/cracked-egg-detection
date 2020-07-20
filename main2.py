@@ -22,6 +22,8 @@ def plot30(egg_images, title):
     plt.figure(title)
     for index, egg_img in enumerate(egg_images):
         plt.subplot(3, 10 ,index+1)
+        plt.xticks([])
+        plt.yticks([])
         plt.imshow(egg_img, cmap='gray')
         plt.title('{0}'.format(index+1))
 
@@ -33,7 +35,7 @@ img_resized_rgb = cv2.cvtColor(img_resized, cv2.COLOR_BGR2RGB)
 # convert to grayscale for processing
 img_gray = cv2.cvtColor(img_resized, cv2.COLOR_BGR2GRAY)
 
-### SECTION 2: EGG EXTRACTION FROM 900x900
+### SECTION 2: EGG IDENTIFICATION FROM 900x900
 # hough circles
 circles = cv2.HoughCircles(img_gray, cv2.HOUGH_GRADIENT, 1, 50, param1=30, param2=40, minRadius=50, maxRadius=70)
 detected_circles = np.uint16(np.around(circles))
@@ -64,7 +66,7 @@ for x, y, r in detected_circles[0,:]:
 # plot30(egg_masks, 'egg masks')
 # plt.show()
 
-# SECTION 3: CROP/MASK INDIVIDUAL EGG
+# SECTION 3: INDIVIDUAL EGG EXTRACTION
 # cropping out the egg using the mask
 eggs_cropped = []
 for egg_img, egg_mask in zip(egg_images, egg_masks):
@@ -99,7 +101,7 @@ for egg_img, egg_mask in zip(eggs_cropped, egg_masks):
     # change egg to foreground
     egg_mask = cv2.bitwise_not(egg_mask)
     # erode egg mask to cover egg region only
-    egg_mask = cv2.erode(egg_mask, cv2.getStructuringElement(cv2.MORPH_RECT, (5,5)), iterations=5)
+    egg_mask = cv2.erode(egg_mask, cv2.getStructuringElement(cv2.MORPH_RECT, (5,5)), iterations=9)
     # remove outline
     egg_abn = cv2.bitwise_and(egg_abn, egg_mask)
 
@@ -110,7 +112,7 @@ for egg_img, egg_mask in zip(eggs_cropped, egg_masks):
 # plot30(egg_abnormals, 'abnormality eggs')
 # plt.show()
 
-# SECTION 5: CALCULATE ABNORMALITY LEVEL OF EGGS
+# SECTION 5: CLASSIFICATION - CALCULATE ABNORMALITY LEVEL OF EGGS
 # abnormality correlates to the sum of white pixels
 count = []
 img_output = img_resized_rgb.copy()
@@ -118,7 +120,7 @@ for egg_img, egg_coord in zip(egg_abnormals, egg_coords):
     x, y, w, h = egg_coord
     count.append(np.count_nonzero(egg_img))
     # different count thres for canny and adaptive thres methods
-    canny_thres = (80, 40)
+    canny_thres = (70, 20)
     adaptive_thres = (300, 200)
     large_impure, medium_impure = canny_thres # change this depending on canny_thres or adaptive_thres method
     if count[-1] > large_impure:
