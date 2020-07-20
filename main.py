@@ -14,8 +14,12 @@ img_gray = cv2.cvtColor(img_resized, cv2.COLOR_BGR2GRAY)
 # otsu thresh
 otsu,img_otsu = cv2.threshold(img_gray, 0, 255, cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)
 img_otsu_inv = cv2.bitwise_not(img_otsu)
+
+# adaptive threshold
 img_gray = cv2.GaussianBlur(img_gray, (5,5), 0)
 img_adap_gaus = cv2.adaptiveThreshold(img_gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+
+# otsu and adaptive thres
 otsu_and_adaptive = cv2.bitwise_and(img_otsu_inv,img_adap_gaus)
 otsu_and_adaptive = cv2.dilate(otsu_and_adaptive, cv2.getStructuringElement(cv2.MORPH_RECT, (3,3)), iterations=1)
 img_adap_gaus_inv = cv2.bitwise_not(img_adap_gaus)
@@ -94,22 +98,40 @@ def egg_transform(egg, style):
     elif style == 5:
         egg = cv2.adaptiveThreshold(egg, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
         contours, _ = cv2.findContours(egg, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-        c = max(contours, key=cv2.contourArea)
+        c = sorted(contours, key=cv2.contourArea)[-1]
+        print(c)
         egg = cv2.drawContours(egg.copy(), c, -1, 255, -1)
+    elif style == 6:
+        color_egg = cv2.cvtColor(egg, cv2.COLOR_GRAY2RGB)
+        # egg = cv2.Canny(egg, 200, 50)
+        egg = cv2.HoughCircles(egg, cv2.HOUGH_GRADIENT, 1, 50, param1=50, param2=30, minRadius=50, maxRadius=80)
+        circles = np.uint16(np.around(egg))
+        for x, y, r in circles[0,:]:
+            egg = cv2.circle(color_egg, (x,y), r, (0,255,0), 3)
+
     return egg
 
-transformed_egg_images = list(map(lambda egg : egg_transform(egg, 5), egg_images))
+egg_mask = list(map(lambda egg : egg_transform(egg, 6), egg_images))
 
+plt.figure('processed eggs')
+for index, rect in enumerate(zip(egg_mask, rect_coords)):
+    egg_img, egg_coord = rect
+    plt.subplot(3, 9 ,index+1)
+    plt.imshow(egg_img, cmap='gray')
+    plt.title('{0}'.format(index+1))
+plt.show()
+exit(0)
+ 
 plt.figure('eggs')
 for index, rect in enumerate(zip(list(map(lambda trans_egg, egg: cv2.bitwise_and(trans_egg, egg),
-transformed_egg_images, egg_images)), rect_coords)):
+egg_mask, egg_images)), rect_coords)):
     egg_img, egg_coord = rect
     plt.subplot(3, 9 ,index+1)
     plt.imshow(egg_img, cmap='gray')
     plt.title('{0}'.format(index+1))
 
 plt.figure('processed eggs')
-for index, rect in enumerate(zip(transformed_egg_images, rect_coords)):
+for index, rect in enumerate(zip(egg_mask, rect_coords)):
     egg_img, egg_coord = rect
     plt.subplot(3, 9 ,index+1)
     plt.imshow(egg_img, cmap='gray')
